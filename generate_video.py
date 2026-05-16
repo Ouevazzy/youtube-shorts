@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 """
 Pipeline automatique : YouTube Shorts tech/IA en français
-Groq (script) → Pexels (vidéo portrait) → edge-tts (voix gratuite) → FFmpeg → YouTube
+Groq (script) → Pexels (vidéo portrait) → gTTS (voix gratuite) → FFmpeg → YouTube
 5 Shorts par jour, 100% gratuit
 """
 
 import os
 import json
-import asyncio
 import subprocess
 import requests
 from pathlib import Path
+from gtts import gTTS
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-import edge_tts
 
 # ─── Configuration (GitHub Secrets) ───────────────────────────────────────────
 GROQ_API_KEY          = os.environ["GROQ_API_KEY"]
@@ -23,8 +22,6 @@ YOUTUBE_CLIENT_ID     = os.environ["YOUTUBE_CLIENT_ID"]
 YOUTUBE_CLIENT_SECRET = os.environ["YOUTUBE_CLIENT_SECRET"]
 YOUTUBE_REFRESH_TOKEN = os.environ["YOUTUBE_REFRESH_TOKEN"]
 
-# Voix française masculine Microsoft Edge — gratuite et illimitée
-VOICE = "fr-FR-HenriNeural"
 
 
 # ─── Étape 1 : Générer le script avec Groq ────────────────────────────────────
@@ -132,14 +129,11 @@ def download_file(url, output_path):
     print(f"✅ Téléchargé : {output_path} ({size / 1024 / 1024:.1f} MB)")
 
 
-# ─── Étape 4 : Générer la voix off avec edge-tts (gratuit, illimité) ──────────
-async def _tts_async(script: str):
-    communicate = edge_tts.Communicate(script, VOICE, rate="+5%")
-    await communicate.save("audio.mp3")
-
+# ─── Étape 4 : Générer la voix off avec gTTS (Google Translate, gratuit) ──────
 def generate_tts(script):
-    print("🎙️ Génération voix off edge-tts (fr-FR-HenriNeural)...")
-    asyncio.run(_tts_async(script))
+    print("🎙️ Génération voix off gTTS (fr)...")
+    tts = gTTS(text=script, lang="fr", slow=False)
+    tts.save("audio.mp3")
     size = Path("audio.mp3").stat().st_size
     print(f"✅ Audio généré : {size / 1024:.0f} KB")
 
