@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
 Pipeline automatique : YouTube Shorts tech/IA en français
-Groq (script) → Pexels (vidéo portrait) → gTTS (voix gratuite) → FFmpeg → YouTube
+HackerNews (actualité) → Groq (script) → Pexels (vidéo portrait) → gTTS (voix gratuite) → FFmpeg → YouTube
 5 Shorts par jour, 100% gratuit
 """
 
 import os
 import json
+import random
 import subprocess
 import requests
 from pathlib import Path
@@ -23,10 +24,59 @@ YOUTUBE_CLIENT_SECRET = os.environ["YOUTUBE_CLIENT_SECRET"]
 YOUTUBE_REFRESH_TOKEN = os.environ["YOUTUBE_REFRESH_TOKEN"]
 
 
+# ─── Étape 0 : Récupérer l'actualité tech du moment (HackerNews, gratuit) ─────
+def get_tech_news():
+    print("📰 Récupération des actualités tech (HackerNews)...")
+    try:
+        # Top stories du moment
+        ids = requests.get(
+            "https://hacker-news.firebaseio.com/v0/topstories.json",
+            timeout=10
+        ).json()[:40]  # Les 40 premiers
+
+        titres = []
+        for story_id in random.sample(ids, min(20, len(ids))):
+            try:
+                item = requests.get(
+                    f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json",
+                    timeout=5
+                ).json()
+                if item and item.get("title") and item.get("score", 0) >= 50:
+                    titres.append(f"- {item['title']} (score: {item['score']})")
+            except Exception:
+                continue
+
+        if titres:
+            print(f"✅ {len(titres)} actualités récupérées")
+            return "\n".join(titres[:15])  # Max 15 pour le prompt
+    except Exception as e:
+        print(f"⚠️ HackerNews inaccessible ({e}), sujet libre")
+    return None
+
 
 # ─── Étape 1 : Générer le script avec Groq ────────────────────────────────────
 def generate_script():
     print("📝 Génération du script avec Groq...")
+
+    news = get_tech_news()
+
+    if news:
+        sujet_instructions = (
+            "Voici les actualités tech les plus populaires du moment sur HackerNews :\n"
+            f"{news}\n\n"
+            "Choisis l'actualité la plus VIRALE et SURPRENANTE pour un public francophone. "
+            "Adapte-la en expliquant le contexte et pourquoi c'est important, "
+            "en gardant un angle 'wow factor' — chiffres marquants, conséquences inattendues, etc. "
+            "Si aucune n'est assez percutante, invente un sujet tech original. "
+        )
+    else:
+        sujet_instructions = (
+            "Choisis un sujet tech ou IA original et fascinant — "
+            "évite ChatGPT, robots, voitures autonomes, blockchain. "
+            "Exemples : algorithmes de recommandation, bugs célèbres, histoire d'internet, "
+            "cryptographie, vision par ordinateur, failles de sécurité, etc. "
+        )
+
     resp = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
@@ -38,13 +88,15 @@ def generate_script():
                     "content": (
                         "Tu es un créateur de YouTube Shorts viral spécialisé tech et IA. "
                         "Tu maîtrises l'art de l'accroche choc, du fait surprenant et du hook irrésistible. "
-                        "Ton style est direct, percutant, dynamique — comme un mini-documentaire de 60 secondes."
+                        "Ton style est direct, percutant, dynamique — comme un mini-documentaire de 60 secondes. "
+                        "Tu parles toujours en français, même si le sujet vient d'une source anglophone."
                     )
                 },
                 {
                     "role": "user",
                     "content": (
-                        "Génère un script de YouTube Short en français sur un fait fascinant et peu connu lié à la tech ou l'IA. "
+                        f"{sujet_instructions}"
+                        "Génère un script de YouTube Short en français. "
                         "Durée cible : 50-55 secondes à l'oral (environ 130-140 mots). "
                         "Structure obligatoire : "
                         "1) ACCROCHE (5 sec) : phrase choc qui donne envie de rester, "
@@ -52,9 +104,6 @@ def generate_script():
                         "3) CONCLUSION (15 sec) : retournement ou fait encore plus surprenant + appel à l'action. "
                         "CONTRAINTES ABSOLUES : script en UN SEUL bloc de texte continu SANS retours à la ligne, "
                         "SANS guillemets doubles, uniquement virgules et points pour les pauses naturelles. "
-                        "Choisis un sujet ORIGINAL — évite ChatGPT, robots, voitures autonomes, blockchain. "
-                        "Exemples de bons sujets : algorithmes de recommandation, mémoire des ordinateurs, "
-                        "bugs célèbres, histoire de l'internet, cryptographie, vision par ordinateur, etc. "
                         'Réponds UNIQUEMENT avec un JSON valide sans markdown ni backticks : '
                         '{"titre": "titre accrocheur max 50 caractères avec 1 emoji au début", '
                         '"sujet": "2-3 mots-clés anglais pour chercher une vidéo sur Pexels (ex: technology circuit, space science, data network)", '
@@ -65,7 +114,7 @@ def generate_script():
                 }
             ],
             "response_format": {"type": "json_object"},
-            "temperature": 1.0,
+            "temperature": 0.9,
             "max_tokens": 1000
         }
     )
