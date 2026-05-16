@@ -1,0 +1,39 @@
+name: 🎬 YouTube Shorts — 5 par jour
+
+on:
+  schedule:
+    - cron: '0 7 * * *'    # 9h Paris
+    - cron: '0 10 * * *'   # 12h Paris
+    - cron: '0 13 * * *'   # 15h Paris
+    - cron: '0 16 * * *'   # 18h Paris
+    - cron: '0 19 * * *'   # 21h Paris
+  workflow_dispatch:         # Lancement manuel depuis GitHub
+
+jobs:
+  generate-short:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📥 Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: 🎞️ Vérifier FFmpeg
+        run: ffmpeg -version | head -1
+
+      - name: 🚀 Générer et uploader le Short
+        env:
+          GROQ_API_KEY:             ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_CLIENT_ID:        ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET:    ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN:    ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: python generate_video.py
