@@ -1,0 +1,40 @@
+# ━━━ Secrets / credentials (NE JAMAIS COMMITER) ━━━
+*.pickle
+*.env
+.env
+.env.*
+config.json
+youtube_client_secrets.json
+youtube_token.*
+*_secrets.json
+service_account*.json
+credentials.json
+
+# ━━━ Artefacts générés par la pipeline ━━━
+audio.mp3
+output.mp4
+concat.mp4
+concat.txt
+video.mp4
+clip_*.mp4
+seg_*.mp4
+subs.srt
+*.log
+
+# ━━━ Python ━━━
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.python-version
+
+# ━━━ OS / éditeurs ━━━
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
