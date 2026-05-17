@@ -18,6 +18,7 @@ from pathlib import Path
 
 import requests
 import edge_tts
+from gtts import gTTS  # Fallback si edge-tts bloqué (ex: GitHub Actions)
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
@@ -257,18 +258,40 @@ def download_file(url, output_path):
             f.write(chunk)
 
 
-# ─── Étape 3 : Voix off Edge-TTS (neuronale, gratuite) ────────────────────────
+# ─── Étape 3 : Voix off (Edge-TTS neuronale, fallback gTTS) ──────────────────
 async def _edge_tts_async(text, voice, output):
     communicate = edge_tts.Communicate(text, voice, rate="+5%")
     await communicate.save(output)
 
 
-def generate_tts(script):
+def _try_edge_tts(script):
+    """Tente Edge-TTS. Lève une exception si bloqué (ex: 403 sur GitHub Actions)."""
     voice = random.choice(VOICES)
-    print(f"🎙️ Voix neuronale Edge-TTS ({voice})...")
+    print(f"🎙️ Tentative Edge-TTS ({voice})...")
     asyncio.run(_edge_tts_async(script, voice, "audio.mp3"))
     size = Path("audio.mp3").stat().st_size
-    print(f"✅ Audio généré : {size / 1024:.0f} KB")
+    if size < 1024:
+        raise RuntimeError("Edge-TTS a produit un fichier trop petit")
+    print(f"✅ Edge-TTS OK : {size / 1024:.0f} KB")
+
+
+def _fallback_gtts(script):
+    """Fallback gTTS (Google Translate) — moins joli mais marche partout."""
+    print("🎙️ Fallback gTTS (Google Translate)...")
+    tts = gTTS(text=script, lang="fr", slow=False)
+    tts.save("audio.mp3")
+    size = Path("audio.mp3").stat().st_size
+    print(f"✅ gTTS OK : {size / 1024:.0f} KB")
+
+
+def generate_tts(script):
+    """Génère la voix off avec fallback automatique."""
+    try:
+        _try_edge_tts(script)
+    except Exception as e:
+        print(f"⚠️ Edge-TTS échoué ({type(e).__name__}: {str(e)[:120]})")
+        print("   → Bascule sur gTTS...")
+        _fallback_gtts(script)
 
 
 # ─── Étape 4 : Génération SRT depuis le script ────────────────────────────────

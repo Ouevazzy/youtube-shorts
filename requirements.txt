@@ -4,3 +4,4 @@ google-auth==2.35.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.1
 edge-tts==6.1.12
+gTTS==2.5.1
