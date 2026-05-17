@@ -1,0 +1,62 @@
+name: 🎬 YouTube Shorts — 5 par jour
+
+# ⚠️ GitHub Actions utilise UTC. Les horaires ci-dessous sont en UTC.
+# Conversion vers Paris : +1h en hiver (CET), +2h en été (CEST).
+on:
+  schedule:
+    - cron: '0 7 * * *'    # 08h Paris (hiver) / 09h Paris (été)
+    - cron: '0 10 * * *'   # 11h Paris (hiver) / 12h Paris (été)
+    - cron: '0 13 * * *'   # 14h Paris (hiver) / 15h Paris (été)
+    - cron: '0 16 * * *'   # 17h Paris (hiver) / 18h Paris (été)
+    - cron: '0 19 * * *'   # 20h Paris (hiver) / 21h Paris (été)
+  workflow_dispatch:         # Lancement manuel depuis l'onglet Actions
+
+# Permissions nécessaires pour commit l'historique anti-doublons
+permissions:
+  contents: write
+
+jobs:
+  generate-short:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: youtube-publish    # Empêche 2 runs en parallèle
+      cancel-in-progress: false
+
+    steps:
+      - name: 📥 Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: 🎞️ Vérifier FFmpeg
+        run: ffmpeg -version | head -1
+
+      - name: 🚀 Générer et uploader le Short
+        env:
+          GROQ_API_KEY:             ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_CLIENT_ID:        ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET:    ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN:    ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: python generate_video.py
+
+      - name: 💾 Sauvegarder l'historique anti-doublons
+        if: success()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -f history.json ] && ! git diff --quiet history.json; then
+            git add history.json
+            git commit -m "📚 history: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          else
+            echo "Pas de changement d'historique à commit."
+          fi
