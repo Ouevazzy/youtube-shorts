@@ -36,8 +36,12 @@ jobs:
       - name: 📦 Installer les dépendances
         run: pip install -r requirements.txt
 
-      - name: 🎞️ Vérifier FFmpeg
-        run: ffmpeg -version | head -1
+      - name: 🎞️ Installer FFmpeg (ffmpeg + ffprobe)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
 
       - name: 🚀 Générer et uploader le Short
         env:
