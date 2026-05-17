@@ -57,10 +57,17 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -f history.json ] && ! git diff --quiet history.json; then
-            git add history.json
-            git commit -m "📚 history: $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git push
-          else
-            echo "Pas de changement d'historique à commit."
+          if [ ! -f history.json ]; then
+            echo "Pas de history.json à commit."
+            exit 0
           fi
+          git add history.json
+          # Vérifier s'il y a un diff staged (fonctionne pour untracked + modified)
+          if git diff --cached --quiet; then
+            echo "Pas de changement d'historique à commit."
+            exit 0
+          fi
+          git commit -m "📚 history: $(date -u +'%Y-%m-%d %H:%M UTC')"
+          # Pull --rebase au cas où un autre run aurait push entre-temps
+          git pull --rebase origin main || true
+          git push origin main
